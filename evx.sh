@@ -5,7 +5,7 @@ CHAT_ID="-1003937000666"
 DEVICE_CODE="sky"
 
 export TZ="Asia/Kolkata"
-export BUILD_HOSTNAME=topex
+export BUILD_HOSTNAME=toplexy
 
 send_msg() {
   curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
@@ -76,7 +76,7 @@ rm -rf .repo/local_manifests
 step_end "Cleaning local manifests"
 
 step_start "Repo Init"
-repo init -u https://github.com/AxionAOSP/android.git -b lineage-23.2 --git-lfs
+repo init -u https://github.com/Evolution-X/manifest -b bq2 --git-lfs
 step_end "Repo Init"
 
 step_start "Repo Sync"
@@ -89,18 +89,15 @@ rm -rf vendor/qcom/opensource/vibrator
 rm -rf device/qcom/sepolicy_vndr/sm8450
 
 step_start "Cloning repos"
-git clone https://github.com/anonytry/device_xiaomi_sky device/xiaomi/sky
+git clone https://github.com/itscrazyguy/device_xiaomi_sky device/xiaomi/sky
 git clone https://github.com/anonytry/kernel_xiaomi_sky.git -b new kernel/xiaomi/sky
 git clone https://github.com/anonytry/device_qcom_sepolicy_vndr.git device/qcom/sepolicy_vndr/sm8450/
 git clone https://github.com/anonytry/android_vendor_qcom_opensource_vibrator.git vendor/qcom/opensource/vibrator
-git clone https://github.com/anonytry/vendor_extras vendor/extras
 step_end "Cloning repos"
 
 export ALLOW_MISSING_DEPENDENCIES=true
 export SKIP_ABI_CHECKS=true
-export SUVM=true
-export VND=true
-export AXION=true
+export EVO=true
 
 . build/envsetup.sh
 
@@ -109,8 +106,6 @@ cd kernel/xiaomi/sky
 curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s dev
 cd -
 step_end "KernelSU setup"
-
-axion sky user gms
 
 send_msg "🛠 <b>Compilation Started</b>"
 
@@ -121,7 +116,7 @@ rm -f out/.done
 track_progress $$ &
 TRACK_PID=$!
 
-BUILD_CMD="ax -br"
+BUILD_CMD="brunch sky user"
 $BUILD_CMD 2>&1 | tee out/error.log
 STATUS=${PIPESTATUS[0]}
 
