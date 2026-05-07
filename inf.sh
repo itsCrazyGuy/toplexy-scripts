@@ -43,7 +43,7 @@ EXPORTS=(
 # lunch, keygen, extra clones, anything — after envsetup
 # eval used intentionally: lunch cmds need current shell env
 EXTRA_CMDS=(
-echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/wip/Signify.sh)
+"echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/wip/Signify.sh)"
 )
 
 KERNELSU_ENABLED=true
