@@ -44,14 +44,13 @@ EXPORTS=(
 # eval used intentionally: lunch cmds need current shell env
 EXTRA_CMDS=(
 "echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/wip/Signify.sh)"
-"lunch infinity_sky-user"
 )
 
 KERNELSU_ENABLED=true
 KERNELSU_PATH="kernel/xiaomi/sky"
 KERNELSU_BRANCH="dev"
 
-BUILD_CMD="m bacon -j$(nproc --all)"
+BUILD_CMD="lunch infinity_sky-user && m bacon -j$(nproc --all)"
 
 # ── END CONFIG ────────────────────────────────────────────────
 
