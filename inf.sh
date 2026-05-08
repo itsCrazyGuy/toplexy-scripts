@@ -220,7 +220,7 @@ fi
 
 # Environment
 for exp in "${EXPORTS[@]}"; do export "$exp"; done
-. build/envsetup.sh
+source build/envsetup.sh
 
 # Post-envsetup
 # FIX 6: EXTRA_CMDS — success message only if all pass
