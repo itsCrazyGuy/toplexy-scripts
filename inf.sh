@@ -323,7 +323,7 @@ while read -r line; do
     fi
   fi
 
-done < <(set +u; eval "$BUILD_CMD" 2>&1 | tee out/error.log; echo "${PIPESTATUS[0]}" > "$EXIT_FILE")
+done < <(set +u; eval "$BUILD_CMD" 2>&1 | tee -a out/error.log; echo "${PIPESTATUS[0]}" > "$EXIT_FILE")
 
 STATUS_CODE=$(cat "$EXIT_FILE" 2>/dev/null || echo 1)
 rm -f "$EXIT_FILE"
