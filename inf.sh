@@ -50,7 +50,7 @@ KERNELSU_ENABLED=true
 KERNELSU_PATH="kernel/xiaomi/sky"
 KERNELSU_BRANCH="dev"
 
-BUILD_CMD="source build/envsetup.sh && brunch sky user"
+BUILD_CMD="brunch sky user"
 
 # ── END CONFIG ────────────────────────────────────────────────
 
@@ -220,7 +220,9 @@ fi
 
 # Environment
 for exp in "${EXPORTS[@]}"; do export "$exp"; done
-source build/envsetup.sh
+set +u
+. build/envsetup.sh
+set -u
 
 # Post-envsetup
 # FIX 6: EXTRA_CMDS — success message only if all pass
@@ -321,7 +323,7 @@ while read -r line; do
     fi
   fi
 
-done < <(eval "$BUILD_CMD" 2>&1 | tee out/error.log; echo "${PIPESTATUS[0]}" > "$EXIT_FILE")
+done < <(set +u; eval "$BUILD_CMD" 2>&1 | tee out/error.log; echo "${PIPESTATUS[0]}" > "$EXIT_FILE")
 
 STATUS_CODE=$(cat "$EXIT_FILE" 2>/dev/null || echo 1)
 rm -f "$EXIT_FILE"
