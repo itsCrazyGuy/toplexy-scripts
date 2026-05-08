@@ -50,7 +50,7 @@ KERNELSU_ENABLED=true
 KERNELSU_PATH="kernel/xiaomi/sky"
 KERNELSU_BRANCH="dev"
 
-BUILD_CMD="brunch sky user"
+BUILD_CMD="source build/envsetup.sh && brunch sky user"
 
 # ── END CONFIG ────────────────────────────────────────────────
 
