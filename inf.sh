@@ -304,6 +304,7 @@ while read -r line; do
     edit_msg "$MSG_ID" "✅ Blueprint
 ✅ Generating Ninja
 ✅ Parsing Modules"
+sleep 1
     BUILD_MSG_ID=$(send_msg_id "⚙️ Build Started...")
 
   elif [[ $BUILD_STARTED -eq 1 && "$line" =~ \[[[:space:]]*([0-9]+)%[[:space:]]+([0-9]+)/([0-9]+) ]]; then
