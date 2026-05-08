@@ -50,7 +50,7 @@ KERNELSU_ENABLED=true
 KERNELSU_PATH="kernel/xiaomi/sky"
 KERNELSU_BRANCH="dev"
 
-BUILD_CMD="lunch infinity_sky-user && m bacon -j$(nproc --all)"
+BUILD_CMD=". build/envsetup.sh && lunch infinity_sky-user && m bacon -j$(nproc --all)"
 
 # ── END CONFIG ────────────────────────────────────────────────
 
