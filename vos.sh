@@ -382,9 +382,3 @@ else
     send_msg "❌ ZIP not found"
   fi
 fi
-load Failed (all servers tried)"
-    fi
-  else
-    send_msg "❌ ZIP not found"
-  fi
-fi
