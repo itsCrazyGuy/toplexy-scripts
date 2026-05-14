@@ -32,6 +32,7 @@ CLONE_REPOS=(
   "https://github.com/anonytry/kernel_xiaomi_sky.git|temp|kernel/xiaomi/sky"
   "https://github.com/anonytry/android_vendor_qcom_opensource_vibrator.git|.|vendor/qcom/opensource/vibrator"
   "https://github.com/anonytry/device_qcom_sepolicy_vndr.git|.|device/qcom/sepolicy_vndr/sm8450/"
+  "https://github.com/anonytry/vendor_extras|.|vendor/extras"
 )
 
 EXPORTS=(
@@ -42,7 +43,7 @@ EXPORTS=(
 )
 
 EXTRA_CMDS=(
-"echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/vos/Signify.sh)"
+#"echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/vos/Signify.sh)"
 )
 
 
@@ -104,7 +105,7 @@ send_log() {
     curl -s --max-time 60 -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendDocument" \
       -F chat_id="$CHAT_ID" \
       -F document=@"$LOG" \
-      -F caption="Build error log" > /dev/null
+      -F caption="❌ Build Error Log" > /dev/null
   else
     send_msg "⚠️ No errors captured in log"
   fi
@@ -168,17 +169,19 @@ edit_msg "$STEP" "✅ Repo Init"
 # Sync
 STEP=$(send_msg_id "⚙️ Syncing...")
 SYNC_OK=0; DIRTY=0; SYNC_METHOD=""
-SYNC_FLAGS="-c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
+SYNC_FLAGS="-c -v --progress -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
 
 if [[ $USE_CRAVE_RESYNC == true && -x /opt/crave/resync.sh ]]; then
-  if /opt/crave/resync.sh 2>&1 | tee -a out/error.log; then
+  if stdbuf -oL -eL /opt/crave/resync.sh 2>&1 | tee -a out/error.log; then
     SYNC_METHOD="Crave Resync"
     SYNC_OK=1
   fi
 fi
 
 if [[ $USE_REPO_SYNC == true ]]; then
-  if repo sync $SYNC_FLAGS 2>&1 | tee -a out/error.log; then
+  # PYTHONUNBUFFERED=1 and stdbuf help show output immediately
+  # --progress forces progress bars even when piped
+  if PYTHONUNBUFFERED=1 stdbuf -oL -eL repo sync $SYNC_FLAGS 2>&1 | tee -a out/error.log; then
     [[ -n "$SYNC_METHOD" ]] && SYNC_METHOD="$SYNC_METHOD + Repo Sync" || SYNC_METHOD="Repo Sync"
     SYNC_OK=1
   fi
@@ -272,6 +275,7 @@ MSG_ID=$(send_msg_id "⚙️ Preparing build...")
 edit_msg "$MSG_ID" "⚙️ Blueprint..."
 
 BUILD_STARTED=0
+MAX_P=0
 LAST_PERCENT=-1
 BUILD_MSG_ID=""
 MILESTONES=(1 7 17 37 50 67 78 86 94 99)
@@ -298,27 +302,39 @@ while read -r line; do
 ⚙️ Parsing Modules..."
   fi
 
-  if [[ $BUILD_STARTED -eq 0 && "$line" =~ \[[[:space:]]*[0-9]+%[[:space:]]+[0-9]+/[0-9]+ ]]; then
-    BUILD_STARTED=1
-    edit_msg "$MSG_ID" "✅ Blueprint
-✅ Generating Ninja
-✅ Parsing Modules"
-sleep 1
-    BUILD_MSG_ID=$(send_msg_id "⚙️ Build Started...")
-
-  elif [[ $BUILD_STARTED -eq 1 && "$line" =~ \[[[:space:]]*([0-9]+)%[[:space:]]+([0-9]+)/([0-9]+) ]]; then
+  if [[ "$line" =~ \[[[:space:]]*([0-9]+)%[[:space:]]+([0-9]+)/([0-9]+) ]]; then
     P=${BASH_REMATCH[1]}
     N=${BASH_REMATCH[3]}
-    (( N > TOTAL_ACTIONS )) && TOTAL_ACTIONS=$N
-    if (( LAST_PERCENT > 50 && P < 10 )); then
-      LAST_PERCENT=-1; MILESTONE_IDX=0
+
+    if [[ $BUILD_STARTED -eq 0 ]]; then
+      (( P > MAX_P )) && MAX_P=$P
+      # Logic: Detect transition from Parsing phase to Compiling phase
+      # Trigger 1: Progress reached 90%+ and then reset to < 10% (Parsing done)
+      # Trigger 2: If action count (N) is massive (> 5000), it's likely already Compiling
+      if { (( MAX_P > 90 && P < 10 )) || (( N > 5000 && MAX_P < 10 )); }; then
+        BUILD_STARTED=1
+        edit_msg "$MSG_ID" "✅ Blueprint
+✅ Generating Ninja
+✅ Parsing Modules"
+        sleep 1
+        BUILD_MSG_ID=$(send_msg_id "⚙️ Build Started...")
+        LAST_PERCENT=-1
+        MILESTONE_IDX=0
+      fi
     fi
-    if (( MILESTONE_IDX < ${#MILESTONES[@]} )); then
-      TARGET=${MILESTONES[$MILESTONE_IDX]}
-      if (( P >= TARGET )); then
-        edit_msg "$BUILD_MSG_ID" "⚙️ $TARGET%"
-        MILESTONE_IDX=$(( MILESTONE_IDX + 1 ))
-        LAST_PERCENT=$P
+
+    if [[ $BUILD_STARTED -eq 1 ]]; then
+      (( N > TOTAL_ACTIONS )) && TOTAL_ACTIONS=$N
+      if (( LAST_PERCENT > 50 && P < 10 )); then
+        LAST_PERCENT=-1; MILESTONE_IDX=0
+      fi
+      if (( MILESTONE_IDX < ${#MILESTONES[@]} )); then
+        TARGET=${MILESTONES[$MILESTONE_IDX]}
+        if (( P >= TARGET )); then
+          edit_msg "$BUILD_MSG_ID" "⚙️ $TARGET%"
+          MILESTONE_IDX=$(( MILESTONE_IDX + 1 ))
+          LAST_PERCENT=$P
+        fi
       fi
     fi
   fi
@@ -352,13 +368,28 @@ else
   if [[ -f "$ZIP" ]]; then
     NAME=$(basename "$ZIP")
     SIZE=$(du -h "$ZIP" | cut -f1)
-    UP_ID=$(send_msg_id "📤 <b>Uploading...</b>")
+    SIZE_BYTES=$(stat -c%s "$ZIP")
+    
+    # Metadata extraction
+    # Search for all build.prop files and take the most relevant one (system/build.prop is usually best)
+    PROP=$(find out/target/product/$DEVICE_CODE -name "build.prop" | grep "system/build.prop" | head -n1)
+    [[ -z "$PROP" ]] && PROP=$(find out/target/product/$DEVICE_CODE -name "build.prop" | head -n1)
+    
+    AV="N/A"; SP="N/A"; BV="N/A"; BD="N/A"
+    if [[ -n "$PROP" && -f "$PROP" ]]; then
+      AV=$(grep "ro.build.version.release=" "$PROP" | cut -d= -f2 | head -n1)
+      SP=$(grep "ro.build.version.security_patch=" "$PROP" | cut -d= -f2 | head -n1)
+      BV=$(grep "ro.voltage.version=" "$PROP" | cut -d= -f2 | head -n1)
+      BD=$(grep "ro.build.date=" "$PROP" | cut -d= -f2 | head -n1)
+    fi
 
-    # FIX 9: Gofile — try up to 2 servers before giving up
+    UP_ID=$(send_msg_id "📤 <b>Uploading to Gofile...</b>")
+    # Gofile — try up to 2 servers before giving up
     UPLOAD_OK=0
     SERVERS=$(curl -s --max-time 10 https://api.gofile.io/servers | jq -r '.data.servers[].name' 2>/dev/null | head -n2)
     for SERVER in $SERVERS; do
-      LINK=$(curl -s --max-time 300 -F "file=@$ZIP" "https://$SERVER.gofile.io/uploadFile" \
+      # Increased timeout to 1200s (20 mins)
+      LINK=$(curl -s --max-time 1200 -F "file=@$ZIP" "https://$SERVER.gofile.io/uploadFile" \
         | jq -er '.data.downloadPage')
       if [[ -n "$LINK" ]]; then
         UPLOAD_OK=1
@@ -369,14 +400,18 @@ else
     if [[ $UPLOAD_OK -eq 1 ]]; then
       edit_msg "$UP_ID" "🚀 <b>Build Released</b>
 
-📱 $DEVICE_CODE
-📦 $NAME
-📊 $SIZE
-⏱ $TIME
+📱 <b>Device:</b> $DEVICE_CODE
+📦 <b>File:</b> $NAME
+📊 <b>Size:</b> $SIZE
+🤖 <b>Android:</b> $AV
+🛡️ <b>Patch:</b> $SP
+⚡ <b>Version:</b> $BV
+📅 <b>Date:</b> $BD
+⏱ <b>Time:</b> $TIME
 
-🔗 <a href=\"$LINK\">Download</a>"
+🔗 <a href=\"$LINK\">Download (Gofile)</a>"
     else
-      edit_msg "$UP_ID" "⚠️ Upload Failed (all servers tried)"
+      edit_msg "$UP_ID" "⚠️ Gofile Upload Failed"
     fi
   else
     send_msg "❌ ZIP not found"
