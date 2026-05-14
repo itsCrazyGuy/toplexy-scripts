@@ -303,44 +303,64 @@ while read -r line; do
   fi
 
   if [[ "$line" =~ \[[[:space:]]*([0-9]+)%[[:space:]]+([0-9]+)/([0-9]+) ]]; then
-    P=${BASH_REMATCH[1]}
-    N=${BASH_REMATCH[3]}
+  P=${BASH_REMATCH[1]}
+  N=${BASH_REMATCH[3]}
 
-    if [[ $BUILD_STARTED -eq 0 ]]; then
-      (( P > MAX_P )) && MAX_P=$P
-      # Logic: Detect transition from Parsing phase to Compiling phase
-      # Trigger 1: Progress reached 90%+ and then reset to < 10% (Parsing done)
-      # Trigger 2: If action count (N) is massive (> 5000), it's likely already Compiling
-      if { (( MAX_P > 90 && P < 10 )) || (( N > 5000 && MAX_P < 10 )); }; then
-        BUILD_STARTED=1
-        edit_msg "$MSG_ID" "✅ Blueprint
-✅ Generating Ninja
-✅ Parsing Modules"
-        sleep 1
-        BUILD_MSG_ID=$(send_msg_id "⚙️ Build Started...")
-        LAST_PERCENT=-1
-        MILESTONE_IDX=0
-      fi
-    fi
-
-    if [[ $BUILD_STARTED -eq 1 ]]; then
-      (( N > TOTAL_ACTIONS )) && TOTAL_ACTIONS=$N
-      if (( LAST_PERCENT > 50 && P < 10 )); then
-        LAST_PERCENT=-1; MILESTONE_IDX=0
-      fi
-      if (( MILESTONE_IDX < ${#MILESTONES[@]} )); then
-        TARGET=${MILESTONES[$MILESTONE_IDX]}
-        if (( P >= TARGET )); then
-          edit_msg "$BUILD_MSG_ID" "⚙️ $TARGET%"
-          MILESTONE_IDX=$(( MILESTONE_IDX + 1 ))
-          LAST_PERCENT=$P
-        fi
-      fi
+  if [[ $BUILD_STARTED -eq 0 ]]; then
+    (( P > MAX_P )) && MAX_P=$P
+    if { (( MAX_P > 90 && P < 10 )) || (( N > 5000 && MAX_P < 10 )); }; then
+      BUILD_STARTED=1
+      edit_msg "$MSG_ID" "✅ Blueprint
+  ✅ Generating Ninja
+  ✅ Parsing Modules"
+      sleep 1
+      # Fix: Explicitly notify that Build has started after parsing
+      BUILD_MSG_ID=$(send_msg_id "🛠 <b>Build Started</b>
+  ⚙️ Build Progress: 0%")
+      LAST_PERCENT=-1
+      MILESTONE_IDX=0
     fi
   fi
 
-done < <(set +u; eval "$BUILD_CMD" 2>&1 | tee -a out/error.log; echo "${PIPESTATUS[0]}" > "$EXIT_FILE")
+  if [[ $BUILD_STARTED -eq 1 ]]; then
+    (( N > TOTAL_ACTIONS )) && TOTAL_ACTIONS=$N
+    if (( LAST_PERCENT > 50 && P < 10 )); then
+      LAST_PERCENT=-1; MILESTONE_IDX=0
+    fi
+    if (( MILESTONE_IDX < ${#MILESTONES[@]} )); then
+      TARGET=${MILESTONES[$MILESTONE_IDX]}
+      if (( P >= TARGET )); then
+        # Fix: Keep the progress update informative
+        edit_msg "$BUILD_MSG_ID" "🛠 <b>Compilation Started</b>
+  ⚙️ Progress: $TARGET%"
+        MILESTONE_IDX=$(( MILESTONE_IDX + 1 ))
+        LAST_PERCENT=$P
+      fi
+    fi
+  fi
+  fi
 
+  done < <(set +u; 
+  # Watchdog: Monitors if the build shell dies unexpectedly
+  (
+  MAIN_PID=$BASHPID
+  sleep 30 # Give build time to start
+  while kill -0 $MAIN_PID 2>/dev/null; do
+    sleep 60
+  done
+  # If we are here, the main shell died. Check if it was a clean exit.
+  if [[ ! -f "$EXIT_FILE" && $USER_CANCELLED -eq 0 ]]; then
+     curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+       -d chat_id="$CHAT_ID" \
+       -d text="⚠️ <b>Warning:</b> Build process disappeared unexpectedly (Server Disconnect/OOM)!" \
+       -d parse_mode=HTML > /dev/null
+  fi
+  ) &
+  WATCHDOG_PID=$!
+  eval "$BUILD_CMD" 2>&1 | tee -a out/error.log; 
+  echo "${PIPESTATUS[0]}" > "$EXIT_FILE"
+  kill $WATCHDOG_PID 2>/dev/null
+  )
 STATUS_CODE=$(cat "$EXIT_FILE" 2>/dev/null || echo 1)
 rm -f "$EXIT_FILE"
 
