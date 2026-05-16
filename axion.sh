@@ -52,7 +52,7 @@ KERNELSU_ENABLED=true
 KERNELSU_PATH="kernel/xiaomi/sky"
 KERNELSU_BRANCH="dev"
 
-BUILD_CMD=". build/envsetup.sh && axion sky user gms && ax -br"
+BUILD_CMD=". build/envsetup.sh && rm -rf vendor/lineage-priv && axion sky user gms && ax -br"
 
 # ── END CONFIG ────────────────────────────────────────────────
 
