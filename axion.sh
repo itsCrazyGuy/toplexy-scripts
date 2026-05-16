@@ -170,7 +170,7 @@ edit_msg "$STEP" "✅ Repo Init"
 # Sync
 STEP=$(send_msg_id "⚙️ Syncing...")
 SYNC_OK=0; DIRTY=0; SYNC_METHOD=""
-SYNC_FLAGS="-c -v --progress -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
+SYNC_FLAGS="-c -v -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
 
 if [[ $USE_CRAVE_RESYNC == true && -x /opt/crave/resync.sh ]]; then
   if stdbuf -oL -eL /opt/crave/resync.sh 2>&1 | tee -a out/error.log; then
@@ -181,7 +181,6 @@ fi
 
 if [[ $USE_REPO_SYNC == true ]]; then
   # PYTHONUNBUFFERED=1 and stdbuf help show output immediately
-  # --progress forces progress bars even when piped
   if PYTHONUNBUFFERED=1 stdbuf -oL -eL repo sync $SYNC_FLAGS 2>&1 | tee -a out/error.log; then
     [[ -n "$SYNC_METHOD" ]] && SYNC_METHOD="$SYNC_METHOD + Repo Sync" || SYNC_METHOD="Repo Sync"
     SYNC_OK=1
