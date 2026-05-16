@@ -169,7 +169,7 @@ edit_msg "$STEP" "✅ Repo Init"
 # Sync
 STEP=$(send_msg_id "⚙️ Syncing...")
 SYNC_OK=0; DIRTY=0; SYNC_METHOD=""
-SYNC_FLAGS="-c -v --progress -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
+SYNC_FLAGS="-c -v -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
 
 if [[ $USE_CRAVE_RESYNC == true && -x /opt/crave/resync.sh ]]; then
   if stdbuf -oL -eL /opt/crave/resync.sh 2>&1 | tee -a out/error.log; then
@@ -180,7 +180,6 @@ fi
 
 if [[ $USE_REPO_SYNC == true ]]; then
   # PYTHONUNBUFFERED=1 and stdbuf help show output immediately
-  # --progress forces progress bars even when piped
   if PYTHONUNBUFFERED=1 stdbuf -oL -eL repo sync $SYNC_FLAGS 2>&1 | tee -a out/error.log; then
     [[ -n "$SYNC_METHOD" ]] && SYNC_METHOD="$SYNC_METHOD + Repo Sync" || SYNC_METHOD="Repo Sync"
     SYNC_OK=1
@@ -421,6 +420,23 @@ else
       edit_msg "$UP_ID" "🚀 <b>Build Released</b>
 
 📱 <b>Device:</b> $DEVICE_CODE
+📦 <b>File:</b> $NAME
+📊 <b>Size:</b> $SIZE
+🤖 <b>Android:</b> $AV
+🛡️ <b>Patch:</b> $SP
+⚡ <b>Version:</b> $BV
+📅 <b>Date:</b> $BD
+⏱ <b>Time:</b> $TIME
+
+🔗 <a href=\"$LINK\">Download (Gofile)</a>"
+    else
+      edit_msg "$UP_ID" "⚠️ Gofile Upload Failed"
+    fi
+  else
+    send_msg "❌ ZIP not found"
+  fi
+fi
+EVICE_CODE
 📦 <b>File:</b> $NAME
 📊 <b>Size:</b> $SIZE
 🤖 <b>Android:</b> $AV

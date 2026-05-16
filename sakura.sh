@@ -181,16 +181,18 @@ edit_msg "$STEP" "✅ Repo Init"
 # Sync
 STEP=$(send_msg_id "⚙️ Syncing...")
 SYNC_OK=0; DIRTY=0; SYNC_METHOD=""
+SYNC_FLAGS="-c -v -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
 
 if [[ $USE_REPO_SYNC == true ]]; then
-  if repo sync 2>&1 | tee -a out/error.log; then	  
+  # PYTHONUNBUFFERED=1 and stdbuf help show output immediately
+  if PYTHONUNBUFFERED=1 stdbuf -oL -eL repo sync $SYNC_FLAGS 2>&1 | tee -a out/error.log; then	  
     SYNC_OK=1; SYNC_METHOD="Repo Sync"
   fi
 fi
 
-if [[ $USE_CRAVE_RESYNC == true ]]; then
-  if /opt/crave/resync.sh 2>&1 | tee -a out/error.log; then	  
-    [[ -n "$SYNC_METHOD" ]] && SYNC_METHOD="$SYNC_METHOD + Crave Resync" || SYNC_METHOD="Crave Resync"
+if [[ $USE_CRAVE_RESYNC == true && -x /opt/crave/resync.sh ]]; then
+  if stdbuf -oL -eL /opt/crave/resync.sh 2>&1 | tee -a out/error.log; then	  
+    [[ -n "$SYNC_METHOD" ]] && SYNC_METHOD="$SYNC_METHOD + Crave Resync" || SYNC_METHOD="Repo Sync"
     SYNC_OK=1
   fi
 fi
@@ -372,6 +374,34 @@ else
       LINK=$(curl -s --max-time 300 -F "file=@$ZIP" "https://$SERVER.gofile.io/uploadFile" \
         | jq -er '.data.downloadPage')
       if [[ -n "$LINK" ]]; then
+        UPLOAD_OK=1
+        break
+      fi
+    done
+
+    if [[ $UPLOAD_OK -eq 1 ]]; then
+      edit_msg "$UP_ID" "🚀 <b>Build Released</b>
+
+📱 $DEVICE_CODE
+📦 $NAME
+📊 $SIZE
+⏱ $TIME
+
+🔗 <a href=\"$LINK\">Download</a>"
+    else
+      edit_msg "$UP_ID" "⚠️ Upload Failed (all servers tried)"
+    fi
+  else
+    send_msg "❌ ZIP not found"
+  fi
+fi
+load Failed (all servers tried)"
+    fi
+  else
+    send_msg "❌ ZIP not found"
+  fi
+fi
+   if [[ -n "$LINK" ]]; then
         UPLOAD_OK=1
         break
       fi
