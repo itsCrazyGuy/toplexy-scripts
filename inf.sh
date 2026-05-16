@@ -30,7 +30,7 @@ REMOVE_PATHS=(
 # "url|branch|dest" — branch "." = default
 CLONE_REPOS=(
   "https://github.com/itscrazyguy/device_xiaomi_sky|.|device/xiaomi/sky"
-  "https://github.com/anonytry/kernel_xiaomi_sky.git|ksun|kernel/xiaomi/sky"
+  "https://github.com/anonytry/kernel_xiaomi_sky.git|temp|kernel/xiaomi/sky"
   "https://github.com/anonytry/android_vendor_qcom_opensource_vibrator.git|.|vendor/qcom/opensource/vibrator"
   "https://github.com/anonytry/device_qcom_sepolicy_vndr.git|.|device/qcom/sepolicy_vndr/sm8450/"
 )
