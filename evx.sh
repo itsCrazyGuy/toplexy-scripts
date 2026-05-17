@@ -41,7 +41,7 @@ EXPORTS=(
 )
 
 EXTRA_CMDS=(
-"echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/vos/Signify.sh)"
+"echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/wip/Signify.sh)"
 )
 
 
@@ -273,6 +273,7 @@ edit_msg "$MSG_ID" "⚙️ Blueprint..."
 
 BUILD_STARTED=0
 MAX_P=0
+LAST_P=0
 LAST_PERCENT=-1
 BUILD_MSG_ID=""
 MILESTONES=(1 7 17 37 50 67 78 86 94 99)
@@ -300,41 +301,46 @@ while read -r line; do
   fi
 
   if [[ "$line" =~ \[[[:space:]]*([0-9]+)%[[:space:]]+([0-9]+)/([0-9]+) ]]; then
-  P=${BASH_REMATCH[1]}
-  N=${BASH_REMATCH[3]}
+    P=${BASH_REMATCH[1]}
+    N=${BASH_REMATCH[3]}
 
-  if [[ $BUILD_STARTED -eq 0 ]]; then
-    (( P > MAX_P )) && MAX_P=$P
-    if { (( MAX_P > 90 && P < 10 )) || (( N > 5000 && MAX_P < 10 )); }; then
-      BUILD_STARTED=1
-      edit_msg "$MSG_ID" "✅ Blueprint
-  ✅ Generating Ninja
-  ✅ Parsing Modules"
-      sleep 1
-      # Fix: Explicitly notify that Build has started after parsing
-      BUILD_MSG_ID=$(send_msg_id "🛠 <b>Build Started</b>
-  ⚙️ Build Progress: 0%")
-      LAST_PERCENT=-1
-      MILESTONE_IDX=0
-    fi
-  fi
-
-  if [[ $BUILD_STARTED -eq 1 ]]; then
-    (( N > TOTAL_ACTIONS )) && TOTAL_ACTIONS=$N
-    if (( LAST_PERCENT > 50 && P < 10 )); then
-      LAST_PERCENT=-1; MILESTONE_IDX=0
-    fi
-    if (( MILESTONE_IDX < ${#MILESTONES[@]} )); then
-      TARGET=${MILESTONES[$MILESTONE_IDX]}
-      if (( P >= TARGET )); then
-        # Fix: Keep the progress update informative
-        edit_msg "$BUILD_MSG_ID" "🛠 <b>Compilation Started</b>
-  ⚙️ Progress: $TARGET%"
-        MILESTONE_IDX=$(( MILESTONE_IDX + 1 ))
-        LAST_PERCENT=$P
+    if [[ $BUILD_STARTED -eq 0 ]]; then
+      (( P > MAX_P )) && MAX_P=$P
+      # Trigger transition to main build if:
+      # 1. Total actions jump significantly (main build is usually > 100k)
+      # 2. Percentage resets after some progress (phase change)
+      # 3. We reach near 100% of a phase (likely ending)
+      if { (( N > 5000 )) || (( P < LAST_P && MAX_P > 10 )) || (( P > 95 )); }; then
+        BUILD_STARTED=1
+        edit_msg "$MSG_ID" "✅ Blueprint
+✅ Generating Ninja
+✅ Parsing Modules"
+        sleep 1
+        BUILD_MSG_ID=$(send_msg_id "🛠 <b>Compilation Started</b>
+⚙️ Progress: 0%")
+        LAST_PERCENT=-1
+        MILESTONE_IDX=0
       fi
     fi
-  fi
+
+    if [[ $BUILD_STARTED -eq 1 ]]; then
+      (( N > TOTAL_ACTIONS )) && TOTAL_ACTIONS=$N
+      # Reset milestones if percentage resets significantly (new large phase)
+      if (( LAST_PERCENT > 50 && P < 10 )); then
+        LAST_PERCENT=-1; MILESTONE_IDX=0
+      fi
+      
+      if (( MILESTONE_IDX < ${#MILESTONES[@]} )); then
+        TARGET=${MILESTONES[$MILESTONE_IDX]}
+        if (( P >= TARGET )); then
+          edit_msg "$BUILD_MSG_ID" "🛠 <b>Compilation Started</b>
+⚙️ Progress: $TARGET%"
+          MILESTONE_IDX=$(( MILESTONE_IDX + 1 ))
+          LAST_PERCENT=$P
+        fi
+      fi
+    fi
+    LAST_P=$P
   fi
 
   done < <(set +u; 
@@ -418,23 +424,6 @@ else
       edit_msg "$UP_ID" "🚀 <b>Build Released</b>
 
 📱 <b>Device:</b> $DEVICE_CODE
-📦 <b>File:</b> $NAME
-📊 <b>Size:</b> $SIZE
-🤖 <b>Android:</b> $AV
-🛡️ <b>Patch:</b> $SP
-⚡ <b>Version:</b> $BV
-📅 <b>Date:</b> $BD
-⏱ <b>Time:</b> $TIME
-
-🔗 <a href=\"$LINK\">Download (Gofile)</a>"
-    else
-      edit_msg "$UP_ID" "⚠️ Gofile Upload Failed"
-    fi
-  else
-    send_msg "❌ ZIP not found"
-  fi
-fi
-EVICE_CODE
 📦 <b>File:</b> $NAME
 📊 <b>Size:</b> $SIZE
 🤖 <b>Android:</b> $AV
