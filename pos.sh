@@ -44,7 +44,7 @@ EXPORTS=(
 
 EXTRA_CMDS=(
 "echo 'no' | bash <(curl -s https://raw.githubusercontent.com/anonytry/Signify/refs/heads/wip/Signify.sh)"
-"mv packages/apps/DolbyAtmos/preinstalled-packages-platform-dolby.xml packages/apps/DolbyAtmos/preinstalled-packages.xml"
+"cd packages/apps/DolbyAtmos/ && git revert 13bbe61cf3e1046e3a1f0bda4719c321c953ce50 && cd -"
 )
 
 
